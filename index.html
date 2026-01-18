@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quest Infinito: Edición Suprema</title>
+    <style>
+        /* ESTILOS GENERALES */
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; }
+        body { background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        canvas { display: block; }
+
+        /* PANTALLA DE LOGIN (LIMPIA Y SEGURA) */
+        #ui-overlay { 
+            position: absolute; inset: 0; 
+            background: radial-gradient(circle at center, #2e0b16, #000000); 
+            z-index: 1000; display: flex; align-items: center; justify-content: center; 
+        }
+        .login-card { 
+            background: rgba(20, 20, 25, 0.95); padding: 40px; 
+            border: 2px solid #ffd700; border-radius: 20px; 
+            text-align: center; width: 90%; max-width: 350px;
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
+        }
+        .login-card h1 { color: #ffd700; margin-bottom: 20px; font-size: 24px; text-transform: uppercase; letter-spacing: 2px; }
+        input { 
+            width: 100%; margin: 10px 0; padding: 15px; 
+            background: #111; color: #fff; border: 1px solid #444; 
+            border-radius: 5px; outline: none; text-align: center;
+        }
+        input:focus { border-color: #ffd700; }
+        .btn-start { 
+            width: 100%; padding: 15px; margin-top: 20px;
+            background: linear-gradient(90deg, #ffd700, #b8860b); 
+            color: #000; border: none; font-weight: bold; 
+            border-radius: 5px; cursor: pointer; font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .btn-start:active { transform: scale(0.95); }
+
+        /* HUD SUPERIOR */
+        #hud { position: absolute; top: 15px; left: 15px; pointer-events: none; z-index: 100; }
+        .hud-item { 
+            background: rgba(0,0,0,0.8); border-left: 4px solid #ffd700; 
+            padding: 8px 15px; margin-bottom: 5px; font-weight: bold; font-size: 14px;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        /* MENÚ FLOTANTE */
+        #map-menu { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(10, 10, 12, 0.98); border: 2px solid #ffd700; 
+            width: 90%; height: 80%; display: none; flex-direction: column; 
+            padding: 20px; z-index: 200; border-radius: 15px;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+        }
+        .menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .map-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); 
+            gap: 8px; overflow-y: auto; padding-right: 5px;
+        }
+        .map-btn { 
+            padding: 15px 5px; background: #222; border: 1px solid #444; 
+            cursor: pointer; text-align: center; font-size: 10px; color: #888;
+            border-radius: 4px; transition: 0.2s;
+        }
+        .map-unlocked { border-color: #0f0; color: #0f0; background: #051a05; }
+        .map-current { background: #ffd700; color: #000; border-color: #fff; font-weight: bold; }
+
+        /* CHAT */
+        #chat-ui { position: absolute; bottom: 200px; left: 20px; width: 300px; pointer-events: none; z-index: 90; }
+        #chat-log { 
+            height: 150px; overflow: hidden; display: flex; flex-direction: column-reverse; 
+            text-shadow: 1px 1px 2px black; font-size: 13px; mask-image: linear-gradient(to top, black 80%, transparent 100%);
+        }
+        #chat-input { 
+            position: absolute; bottom: 160px; left: 20px; width: 250px; 
+            padding: 10px; background: rgba(0,0,0,0.9); border: 1px solid #ffd700; 
+            color: white; display: none; z-index: 210; pointer-events: auto;
+        }
+
+        /* CONTROLES MÓVILES */
+        #mobile-controls { 
+            position: absolute; bottom: 30px; width: 100%; height: 150px;
+            display: none; pointer-events: none; z-index: 150;
+        }
+        .control-zone { pointer-events: auto; position: absolute; }
+        #stick-zone { bottom: 20px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 2px solid rgba(255,255,255,0.1); }
+        #stick-knob { width: 50px; height: 50px; background: rgba(255,255,255,0.8); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        
+        .btn-group { bottom: 20px; right: 30px; display: flex; flex-direction: column; gap: 15px; }
+        .round-btn { 
+            width: 60px; height: 60px; border-radius: 50%; 
+            background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.5); 
+            color: white; font-weight: bold; display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px); font-size: 20px;
+        }
+        .round-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.2); }
+        
+        #btn-kill { border-color: red; color: red; display: none; } /* Solo admin */
+
+        /* BOTÓN MENÚ FLOTANTE */
+        #btn-menu-float { 
+            position: absolute; top: 15px; right: 15px; padding: 10px 20px; 
+            background: #ffd700; color: #000; font-weight: bold; 
+            border: none; border-radius: 20px; cursor: pointer; z-index: 150;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-overlay">
+        <div class="login-card">
+            <h1>QUEST 1000</h1>
+            <input type="text" id="in-user" placeholder="USUARIO">
+            <input type="password" id="in-pass" placeholder="CONTRASEÑA">
+            <button class="btn-start" onclick="login()">ENTRAR</button>
+        </div>
+    </div>
+
+    <div id="hud">
+        <div class="hud-item">👤 <span id="h-name">JUGADOR</span></div>
+        <div class="hud-item">🌍 MAPA: <span id="h-map">0</span> <span id="h-type" style="font-size:10px; color:#aaa"></span></div>
+        <div class="hud-item">🏆 SCORE: <span id="h-score">0</span></div>
+    </div>
+
+    <button id="btn-menu-float" onclick="toggleMenu()">MENÚ (M)</button>
+
+    <div id="map-menu">
+        <div class="menu-header">
+            <h2 style="color:#ffd700">TELETRANSPORTE</h2>
+            <button onclick="toggleMenu()" style="background:red; color:white; border:none; padding:5px 15px; cursor:pointer;">X</button>
+        </div>
+        <div class="map-grid" id="map-grid"></div>
+    </div>
+
+    <div id="chat-ui"><div id="chat-log"></div></div>
+    <input type="text" id="chat-input" placeholder="Mensaje...">
+
+    <div id="mobile-controls">
+        <div class="control-zone" id="stick-zone"><div id="stick-knob"></div></div>
+        <div class="control-zone btn-group">
+            <div class="round-btn" id="btn-kill" onclick="killAll()">💀</div>
+            <div class="round-btn" id="btn-interact" style="border-color:#0f0; color:#0f0">E</div>
+            <div class="round-btn" id="btn-chat" style="border-color:#0af; color:#0af">💬</div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        /** MOTOR DEL JUEGO **/
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // Configuración Global
+        const WORLD_W = 3000;
+        const WORLD_H = 3000;
+        
+        let gameState = {
+            running: false,
+            player: {
+                x: 0, y: 0, size: 22, speed: 6,
+                name: "", score: 0, currentMap: 0,
+                unlockedMaps: [0], isAdmin: false,
+                adminRank: 0, // 0=User, 1=Spider(Silver), 2=Overmind(Gold)
+                crownColor: "gold",
+                vx: 0, vy: 0, 
+                chatting: false, msg: "", msgTimer: 0
+            },
+            world: {
+                walls: [], enemies: [], levers: [], portal: null, type: "factory"
+            },
+            camera: { x: 0, y: 0 },
+            particles: [],
+            input: { w:false, a:false, s:false, d:false, mouseX:0, mouseY:0 }
+        };
+
+        // --- SISTEMA DE LOGIN SEGURO ---
+        function login() {
+            const u = document.getElementById('in-user').value.trim();
+            const p = document.getElementById('in-pass').value.trim();
+            if(!u) return;
+
+            gameState.player.name = u;
+            
+            // VERIFICACIÓN DE CREDENCIALES (LÓGICA INTERNA)
+            if(u === "m1n1-overmind" && p === "m1n1kabc123456789") {
+                setAdmin(2); // Dios Supremo
+            } else if(u === "TimothyTheSpider" && p === "timo123") {
+                setAdmin(1); // Admin Menor
+            } else {
+                loadProgress(u);
+            }
+
+            startGame();
+        }
+
+        function setAdmin(rank) {
+            gameState.player.isAdmin = true;
+            gameState.player.adminRank = rank;
+            gameState.player.speed = 12; // Velocidad divina
+            gameState.player.crownColor = (rank === 2) ? "gold" : "silver";
+            gameState.player.unlockedMaps = Array.from({length: 1000}, (_, i) => i); // Todo desbloqueado
+            
+            if(rank === 2) {
+                // Habilitar botón de exterminio para Overmind
+                document.getElementById('btn-kill').style.display = 'flex';
+                sysMsg("¡BIENVENIDO CREADOR SUPREMO!");
+            }
+        }
+
+        function loadProgress(user) {
+            const data = localStorage.getItem('q1000_' + user);
+            if(data) {
+                const parsed = JSON.parse(data);
+                gameState.player.score = parsed.s || 0;
+                gameState.player.currentMap = parsed.m || 0;
+                gameState.player.unlockedMaps = parsed.u || [0];
+            }
+        }
+
+        function autoSave() {
+            if(gameState.player.isAdmin) return;
+            const data = {
+                s: gameState.player.score,
+                m: gameState.player.currentMap,
+                u: gameState.player.unlockedMaps
+            };
+            localStorage.setItem('q1000_' + gameState.player.name, JSON.stringify(data));
+        }
+
+        function startGame() {
+            document.getElementById('ui-overlay').style.display = 'none';
+            document.getElementById('h-name').textContent = gameState.player.name;
+            
+            if(isTouch) document.getElementById('mobile-controls').style.display = 'block';
+            
+            loadMap(gameState.player.currentMap);
+            gameState.running = true;
+            requestAnimationFrame(loop);
+        }
+
+        // --- GENERACIÓN DE MAPAS (15% VARIACIÓN) ---
+        function loadMap(id) {
+            gameState.player.currentMap = id;
+            document.getElementById('h-map').textContent = id;
+            
+            const w = gameState.world;
+            w.walls = []; w.enemies = []; w.levers = []; w.portal = null;
+
+            // Lógica de Tipos de Mapa
+            // 1. Cada 10 niveles = Bosque
+            // 2. 15% de probabilidad aleatoria = Hielo
+            // 3. Resto = Fábrica
+            
+            if(id > 0 && id % 10 === 0) {
+                w.type = "forest";
+            } else if (Math.random() < 0.15) {
+                w.type = "ice"; // NUEVO TIPO
+            } else {
+                w.type = "factory";
+            }
+
+            document.getElementById('h-type').textContent = w.type.toUpperCase();
+
+            // Configurar Elementos
+            if(w.type === "factory") {
+                // FÁBRICA: Suelo Gris, Muros Verdes
+                for(let i=0; i<40; i++) {
+                    w.walls.push({
+                        x: Math.random() * (WORLD_W - 500), y: Math.random() * (WORLD_H - 500),
+                        w: Math.random() > 0.5 ? 60 : 400, h: Math.random() > 0.5 ? 400 : 60,
+                        c: "#0f0" // Color muro
+                    });
+                }
+                spawnLevers(1, 4); // 1 real, 4 falsas
+
+            } else if (w.type === "ice") {
+                // HIELO: Suelo Azul Oscuro, Muros Cian
+                for(let i=0; i<30; i++) {
+                    w.walls.push({
+                        x: Math.random() * (WORLD_W - 300), y: Math.random() * (WORLD_H - 300),
+                        w: Math.random() * 200 + 50, h: Math.random() * 200 + 50,
+                        c: "#0ff"
+                    });
+                }
+                spawnLevers(1, 2);
+
+            } else {
+                // BOSQUE: Sin muros, puras trampas
+                spawnLevers(1, 29); // 1 real, 29 falsas
+            }
+
+            // Enemigos
+            const enemyCount = 10 + Math.floor(id / 10);
+            for(let i=0; i<enemyCount; i++) spawnEnemy(id, w.type);
+
+            gameState.player.x = 200; gameState.player.y = 200;
+            autoSave();
+        }
+
+        function spawnLevers(realCount, fakeCount) {
+            // Genera la real primero
+            for(let i=0; i<realCount; i++) createLever(true);
+            for(let i=0; i<fakeCount; i++) createLever(false);
+        }
+
+        function createLever(isCorrect) {
+            let x, y, safe;
+            do {
+                x = Math.random() * (WORLD_W - 100);
+                y = Math.random() * (WORLD_H - 100);
+                safe = !checkWallCollision(x, y, 40);
+            } while(!safe);
+            gameState.world.levers.push({x, y, correct: isCorrect, active: false});
+        }
+
+        function spawnEnemy(level, type) {
+            let x, y, safe;
+            do {
+                x = Math.random() * WORLD_W; y = Math.random() * WORLD_H;
+                safe = !checkWallCollision(x, y, 30) && Math.hypot(x-200, y-200) > 600;
+            } while(!safe);
+            
+            // Enemigos diferentes según bioma
+            let speed = 1.5 + (level * 0.05);
+            let color = "#f00"; // Default Red
+            
+            if(type === "ice") { color = "#00f"; speed *= 1.2; } // Rápidos azules
+            if(type === "forest") { color = "#8B4513"; speed *= 0.8; } // Lentos marrones
+
+            gameState.world.enemies.push({x, y, s: speed, c: color});
+        }
+
+        function checkWallCollision(x, y, size) {
+            return gameState.world.walls.some(w => 
+                x + size > w.x && x - size < w.x + w.w &&
+                y + size > w.y && y - size < w.y + w.h
+            );
+        }
+
+        // --- BUCLE PRINCIPAL ---
+        function loop() {
+            if(!gameState.running) return;
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+            updatePlayer();
+
+            // Cámara
+            gameState.camera.x = gameState.player.x - canvas.width / 2;
+            gameState.camera.y = gameState.player.y - canvas.height / 2;
+
+            // 1. DIBUJAR SUELO (FONDO)
+            const type = gameState.world.type;
+            if(type === "factory") ctx.fillStyle = "#333333"; // GRIS SOLICITADO
+            else if(type === "ice") ctx.fillStyle = "#000510"; // Azul muy oscuro
+            else ctx.fillStyle = "#051505"; // Verde oscuro (bosque)
+            
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-gameState.camera.x, -gameState.camera.y);
+
+            drawWorld();
+            drawEntities();
+            drawPlayer();
+
+            ctx.restore();
+            document.getElementById('h-score').textContent = gameState.player.score;
+            requestAnimationFrame(loop);
+        }
+
+        function updatePlayer() {
+            const p = gameState.player;
+            if(!p.chatting) {
+                p.x += p.vx; p.y += p.vy;
+            }
+            p.x = Math.max(0, Math.min(WORLD_W, p.x));
+            p.y = Math.max(0, Math.min(WORLD_H, p.y));
+        }
+
+        function drawWorld() {
+            const w = gameState.world;
+            
+            // Muros
+            w.walls.forEach(wall => {
+                ctx.fillStyle = wall.c;
+                ctx.shadowBlur = 15; ctx.shadowColor = wall.c;
+                ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+                
+                // Colisión Muro
+                if(!gameState.player.isAdmin && 
+                   gameState.player.x + 15 > wall.x && gameState.player.x - 15 < wall.x + wall.w &&
+                   gameState.player.y + 15 > wall.y && gameState.player.y - 15 < wall.y + wall.h) {
+                    die("Muro tóxico.");
+                }
+            });
+            ctx.shadowBlur = 0;
+
+            // Palancas
+            w.levers.forEach(l => {
+                ctx.fillStyle = l.active ? "#555" : (w.type === "factory" ? "#ff0000" : "#d2691e");
+                ctx.fillRect(l.x, l.y, 40, 40);
+                if(l.active && l.correct && !w.portal) {
+                    w.portal = { x: l.x, y: l.y - 100 };
+                    sysMsg("PORTAL ABIERTO.");
+                }
+            });
+
+            // Portal
+            if(w.portal) {
+                const g = ctx.createRadialGradient(w.portal.x, w.portal.y, 10, w.portal.x, w.portal.y, 60);
+                g.addColorStop(0, "white"); g.addColorStop(1, "magenta");
+                ctx.fillStyle = g; ctx.shadowBlur = 20; ctx.shadowColor = "magenta";
+                ctx.beginPath(); ctx.arc(w.portal.x, w.portal.y, 60, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                if(Math.hypot(gameState.player.x - w.portal.x, gameState.player.y - w.portal.y) < 60) {
+                    levelUp();
+                }
+            }
+        }
+
+        function drawEntities() {
+            const p = gameState.player;
+            gameState.world.enemies.forEach(e => {
+                const dist = Math.hypot(p.x - e.x, p.y - e.y);
+                if(dist < 1000) {
+                    let dx = (p.x - e.x) / dist; let dy = (p.y - e.y) / dist;
+                    if(!checkWallCollision(e.x + dx*e.s, e.y + dy*e.s, 15)) {
+                        e.x += dx * e.s; e.y += dy * e.s;
+                    }
+                }
+                ctx.fillStyle = e.c; 
+                ctx.fillRect(e.x-15, e.y-15, 30, 30);
+                if(dist < 35 && !p.isAdmin) die("Enemigo te atrapó.");
+            });
+        }
+
+        function drawPlayer() {
+            const p = gameState.player;
+            
+            // --- EFECTO DE PARTÍCULAS ADMIN (BRILLO DORADO) ---
+            if(p.isAdmin) {
+                // Generar partículas brillantes
+                if(Math.random() > 0.2) {
+                    gameState.particles.push({
+                        x: p.x + (Math.random()-0.5)*30, 
+                        y: p.y + (Math.random()-0.5)*30, 
+                        life: 1.0, 
+                        size: Math.random() * 4 + 2
+                    });
+                }
+                
+                // Dibujar Partículas
+                gameState.particles.forEach((pt, i) => {
+                    pt.y -= 1.5; pt.life -= 0.04;
+                    ctx.globalAlpha = pt.life;
+                    
+                    // El "Glow" solicitado
+                    ctx.shadowBlur = 15; 
+                    ctx.shadowColor = p.crownColor; 
+                    ctx.fillStyle = p.crownColor;
+                    
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI*2); ctx.fill();
+                    
+                    if(pt.life <= 0) gameState.particles.splice(i,1);
+                });
+                ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+            }
+
+            // Cuerpo
+            ctx.shadowBlur = p.isAdmin ? 20 : 0;
+            ctx.shadowColor = p.crownColor;
+            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // Ojos
+            ctx.fillStyle = "white"; 
+            ctx.beginPath(); ctx.arc(p.x-8, p.y-6, 7, 0, Math.PI*2); ctx.arc(p.x+8, p.y-6, 7, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "black";
+            // Pupilas siguen el movimiento
+            let lookX = isTouch ? p.vx*5 : (gameState.input.mouseX + gameState.camera.x - p.x)*0.05;
+            let lookY = isTouch ? p.vy*5 : (gameState.input.mouseY + gameState.camera.y - p.y)*0.05;
+            ctx.beginPath(); ctx.arc(p.x-8+Math.min(3,Math.max(-3,lookX)), p.y-6+Math.min(3,Math.max(-3,lookY)), 3, 0, Math.PI*2);
+            ctx.arc(p.x+8+Math.min(3,Math.max(-3,lookX)), p.y-6+Math.min(3,Math.max(-3,lookY)), 3, 0, Math.PI*2); ctx.fill();
+
+            // Boca
+            ctx.strokeStyle = "black"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y+5, 8, 0.2, Math.PI-0.2); ctx.stroke();
+
+            // Corona Admin
+            if(p.isAdmin) {
+                ctx.fillStyle = p.crownColor;
+                ctx.beginPath(); 
+                ctx.moveTo(p.x-15, p.y-25); ctx.lineTo(p.x-20, p.y-45); ctx.lineTo(p.x-10, p.y-35);
+                ctx.lineTo(p.x, p.y-50); ctx.lineTo(p.x+10, p.y-35); ctx.lineTo(p.x+20, p.y-45);
+                ctx.lineTo(p.x+15, p.y-25); ctx.fill();
+            }
+
+            // Chat Msg
+            if(p.msg && Date.now() - p.msgTimer < 4000) {
+                ctx.fillStyle = "white"; ctx.font = "14px Arial"; ctx.textAlign = "center";
+                ctx.fillText(p.msg, p.x, p.y - 60);
+            }
+        }
+
+        // --- FUNCIONES ADMIN ---
+        function killAll() {
+            // Solo Admin 2 (m1n1-overmind) puede usar esto
+            if(!gameState.player.isAdmin || gameState.player.adminRank < 2) {
+                sysMsg("⛔ ACCESO DENEGADO: Rango insuficiente.");
+                return;
+            }
+            
+            // Efecto Visual de Muerte
+            gameState.world.enemies.forEach(e => {
+                for(let i=0; i<5; i++) {
+                    gameState.particles.push({x: e.x, y: e.y, life: 1, size: 5, c: 'red'});
+                }
+            });
+            
+            const count = gameState.world.enemies.length;
+            gameState.world.enemies = []; // Borrar todos
+            sysMsg(`💀 EXTERMINIO: ${count} entidades eliminadas.`);
+        }
+
+        function changeCrown() {
+            if(gameState.player.isAdmin) {
+                gameState.player.crownColor = gameState.player.crownColor === "gold" ? "#00ff00" : (gameState.player.crownColor === "#00ff00" ? "red" : "gold");
+                sysMsg("👑 Corona Cambiada");
+            }
+        }
+
+        // --- LÓGICA JUEGO ---
+        function interact() {
+            const p = gameState.player;
+            gameState.world.levers.forEach(l => {
+                if(Math.hypot(p.x - l.x, p.y - l.y) < 60 && !l.active) {
+                    l.active = true;
+                    if(l.correct) {
+                        gameState.world.portal = { x: p.x, y: p.y - 100 };
+                        sysMsg("¡SALIDA LOCALIZADA!");
+                    } else if(!p.isAdmin) {
+                        die("💥 TRAMPA DETONADA 💥");
+                    } else {
+                        sysMsg("ADMIN: Trampa ignorada.");
+                    }
+                }
+            });
+        }
+
+        function levelUp() {
+            const next = gameState.player.currentMap + 1;
+            if(!gameState.player.unlockedMaps.includes(next)) gameState.player.unlockedMaps.push(next);
+            gameState.player.score += 1000;
+            loadMap(next);
+        }
+
+        function die(reason) {
+            alert(reason);
+            loadMap(gameState.player.currentMap);
+        }
+
+        function sysMsg(txt) {
+            const log = document.getElementById('chat-log');
+            log.innerHTML = `<div style="color:yellow">${txt}</div>` + log.innerHTML;
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById('map-menu');
+            if(menu.style.display === 'flex') { menu.style.display = 'none'; return; }
+            const grid = document.getElementById('map-grid');
+            grid.innerHTML = "";
+            for(let i=0; i<1000; i++) {
+                const d = document.createElement('div');
+                const unlocked = gameState.player.unlockedMaps.includes(i);
+                d.className = `map-btn ${unlocked ? 'map-unlocked' : ''} ${i===gameState.player.currentMap?'map-current':''}`;
+                d.innerHTML = unlocked ? `MUNDO<br>${i}` : `🔒<br>${i}`;
+                if(unlocked) d.onclick = () => { loadMap(i); toggleMenu(); };
+                grid.appendChild(d);
+            }
+            menu.style.display = 'flex';
+        }
+
+        // --- INPUTS ---
+        window.onkeydown = (e) => {
+            const k = e.key.toLowerCase();
+            if(k === 'enter') toggleChat();
+            if(gameState.player.chatting) return;
+
+            if(k === 'w') gameState.player.vy = -gameState.player.speed;
+            if(k === 's') gameState.player.vy = gameState.player.speed;
+            if(k === 'a') gameState.player.vx = -gameState.player.speed;
+            if(k === 'd') gameState.player.vx = gameState.player.speed;
+            if(k === 'e') interact();
+            if(k === 'm') toggleMenu();
+            if(k === 'c') changeCrown(); // Cambiar corona
+            if(k === 'k') killAll(); // Kill Aura (Solo Admin 2)
+        };
+
+        window.onkeyup = (e) => {
+            const k = e.key.toLowerCase();
+            if(['w','s'].includes(k)) gameState.player.vy = 0;
+            if(['a','d'].includes(k)) gameState.player.vx = 0;
+        };
+
+        window.onmousemove = (e) => {
+            gameState.input.mouseX = e.clientX;
+            gameState.input.mouseY = e.clientY;
+        };
+
+        function toggleChat() {
+            const input = document.getElementById('chat-input');
+            if(input.style.display === 'block') {
+                const txt = input.value.trim();
+                if(txt) {
+                    gameState.player.msg = txt; gameState.player.msgTimer = Date.now();
+                    const log = document.getElementById('chat-log');
+                    const color = gameState.player.isAdmin ? gameState.player.crownColor : 'white';
+                    log.innerHTML = `<div><b style="color:${color}">${gameState.player.name}:</b> ${txt}</div>` + log.innerHTML;
+                }
+                input.value = ""; input.style.display = 'none'; gameState.player.chatting = false;
+            } else {
+                input.style.display = 'block'; input.focus(); gameState.player.chatting = true;
+            }
+        }
+
+        // --- JOYSTICK MÓVIL ---
+        if(isTouch) {
+            const zone = document.getElementById('stick-zone');
+            const knob = document.getElementById('stick-knob');
+            let dragging = false;
+            
+            zone.addEventListener('touchstart', (e) => { dragging = true; e.preventDefault(); });
+            window.addEventListener('touchmove', (e) => {
+                if(!dragging) return;
+                const t = e.touches[0];
+                const rect = zone.getBoundingClientRect();
+                const dx = t.clientX - (rect.left + rect.width/2);
+                const dy = t.clientY - (rect.top + rect.height/2);
+                const ang = Math.atan2(dy, dx);
+                const dist = Math.min(60, Math.hypot(dx, dy));
+                
+                knob.style.transform = `translate(calc(-50% + ${Math.cos(ang)*dist}px), calc(-50% + ${Math.sin(ang)*dist}px))`;
+                gameState.player.vx = Math.cos(ang) * (dist/60) * gameState.player.speed;
+                gameState.player.vy = Math.sin(ang) * (dist/60) * gameState.player.speed;
+            });
+            window.addEventListener('touchend', () => {
+                dragging = false; gameState.player.vx = 0; gameState.player.vy = 0;
+                knob.style.transform = `translate(-50%, -50%)`;
+            });
+            document.getElementById('btn-interact').addEventListener('touchstart', (e) => { e.preventDefault(); interact(); });
+            document.getElementById('btn-chat').addEventListener('touchstart', (e) => { e.preventDefault(); toggleChat(); });
+        }
+    </script>
+</body>
+</html>
